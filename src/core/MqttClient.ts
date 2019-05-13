@@ -13,7 +13,7 @@ export class MqttClient {
   private readonly devicesTopic: string
   private readonly deviceTopicPrefix: string
   private readonly rootTopic: string
-  private readonly stateSuffix: string = 'state'
+  private readonly stateSuffix: string
   private readonly client: AsyncClient
   private readonly devices: Device[]
   private readonly stateReports: StateReport[]
@@ -21,7 +21,8 @@ export class MqttClient {
   constructor() {
     this.rootTopic = process.env.ROOT_TOPIC || ''
     this.devicesTopic = process.env.DEVICES_TOPIC || ''
-    this.deviceTopicPrefix = process.env.SINGLE_DEVICE_TOPIC_PREFIX || ''
+    this.deviceTopicPrefix = process.env.DEVICE_TOPIC_PREFIX || ''
+    this.stateSuffix = 'state'
     this.client = new AsyncClient(mqtt.connect(this.mqttOptions))
     this.devices = []
     this.stateReports = []

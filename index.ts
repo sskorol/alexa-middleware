@@ -3,7 +3,9 @@ import * as dotenv from 'dotenv'
 import * as express from 'express'
 import * as HttpStatus from 'http-status-codes'
 import * as https from 'https'
+import * as _ from 'lodash'
 import * as morganBody from 'morgan-body'
+import { Property } from './src/core/Device'
 import { MqttClient } from './src/core/MqttClient'
 import { StateReport } from './src/core/StateReport'
 import { read } from './src/utils/FileUtils'
@@ -20,8 +22,7 @@ middlewareService
     response.status(HttpStatus.OK).send(mqttClient.reports)
   })
   .get('/device/:id/state', (request: express.Request, response: express.Response) => {
-    const endpointId: string = request.params.id
-    const stateReport: StateReport | undefined = mqttClient.reports.find(report => report.getId() === endpointId)
+    const stateReport: StateReport | undefined = mqttClient.reports.find(report => report.getId() === request.params.id)
     response.status(HttpStatus.OK).send(stateReport ? stateReport.getProperties() : [])
   })
   .get('/devices', (request: express.Request, response: express.Response) => {
@@ -36,30 +37,18 @@ middlewareService
 
     if (endpointId) {
       try {
-        await mqttClient.publish(
-          `${process.env.SINGLE_DEVICE_TOPIC_PREFIX}/${endpointId}`,
-          JSON.stringify(request.body)
+        await mqttClient.publish(`${process.env.DEVICE_TOPIC_PREFIX}/${endpointId}`, JSON.stringify(request.body))
+        const properties: Property[] = _.flatMap(
+          mqttClient.reports.filter(report => report.getId() === endpointId),
+          report => report.getProperties()
         )
-        response
-          .status(HttpStatus.OK)
-          .send(
-            mqttClient.reports.filter(report => report.getId() === endpointId).map(report => report.getProperties())
-          )
+        response.status(HttpStatus.OK).send(properties)
       } catch (error) {
         log(`Unable to send message to ${endpointId}: ${error.toString()}`)
         response.status(HttpStatus.INTERNAL_SERVER_ERROR).send({ message: 'Unable to publish message' })
       }
     } else {
       response.status(HttpStatus.BAD_REQUEST).send({ message: 'Invalid endpointId' })
-    }
-  })
-  .post('/discovery', async (request: express.Request, response: express.Response) => {
-    try {
-      await mqttClient.publish(`${process.env.DISCOVERY_TOPIC}`, JSON.stringify(request.body))
-      response.status(HttpStatus.OK).send(mqttClient.devicesInfo)
-    } catch (error) {
-      log(`Unable to broadcast discovery message: ${error.toString()}`)
-      response.status(HttpStatus.INTERNAL_SERVER_ERROR).send({ message: 'Unable to publish message' })
     }
   })
 

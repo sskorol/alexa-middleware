@@ -27,17 +27,20 @@ MQTT_PASSWORD=
 ROOT_TOPIC=home/#
 DEVICES_TOPIC=home/devices
 DEVICE_TOPIC_PREFIX=home/device
+STATUS_TOPIC=home/middleware/status
 ```
 
 Feel free to put your own values here.
 
 Note that by default Middleware layer is configured to listen all the messages from within **ROOT_TOPIC**.
 
-**DEVICES_TOPIC** is used for publishing an extensive information about available devices in you local network. Note that all the messages must follow the json format described in **./src/Device.ts**.
+**DEVICES_TOPIC** is used for publishing an extensive information about available devices in you local network. Note that all the messages must follow the json format described in **./src/core/index.ts**.
 
 Basically, all the micro-controllers will use Alexa-compatible messages' format to avoid any additional transformations while interacting with a Smart Home Skill. You can check the following [repository](https://github.com/sskorol/arduino-alexa-bridge) to simplify required configuration stuff.
 
 **DEVICES_TOPIC_PREFIX** is used to access individual device state. It's concatenated with device id (**endpointId**) and **/state** suffix in runtime.
+
+**STATUS_TOPIC** is useful for tracking middleware MQTT client's state via so-called **will** feature. This topic will be notified when a client goes online/offline.  
 
 To start Middleware in a development mode, use the following command:
 
@@ -59,11 +62,11 @@ npm run stop-prod
 
 Use the following endpoints to interact with Alexa Smart Home Skill:  
 
- - [GET] **/stateReports**: returns actual states collected from available devices in your local network.
- - [GET] **/device/:id/state**: returns a state report form requested device.
- - [GET] **/devices**: returns all available devices in you local network in Alexa-compatible for discovery format.
- - [DELETE] **/devices**: clears an in-memory array of available devices.
- - [POST] **/device/:id**: sends an MQTT command to specified device.
+ - [GET] **/api/devices/stateReports**: returns actual states collected from available devices in your local network.
+ - [GET] **/api/devices/:id/state**: returns a state report form requested device.
+ - [GET] **/api/devices**: returns all available devices in you local network in Alexa-compatible for discovery format.
+ - [DELETE] **/api/devices**: clears an in-memory array of available devices.
+ - [POST] **/api/devices/:id**: sends an MQTT command to specified device.
  
 ## Flow
 
@@ -136,7 +139,7 @@ When user says **Alexa, light on** (assuming the mentioned above friendly name i
 ]
 ```
  
-to our Middleware -> **/device/lobby_lamp_1** endpoint.
+to our Middleware -> **/api/devices/lobby_lamp_1** endpoint.
 
 This command is published to individual **home/device/lobby_lamp_1** topic, which our NodeMCU board is subscribed to.
 

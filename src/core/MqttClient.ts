@@ -1,48 +1,32 @@
+import { Inject, Injectable } from '@nestjs/common'
 import { AsyncClient } from 'async-mqtt'
+import * as _ from 'lodash'
 import * as mqtt from 'mqtt'
+import { Logger } from 'winston'
+import {
+  DEVICE_TOPIC_PREFIX,
+  DEVICES_TOPIC,
+  MQTT_OPTIONS,
+  ROOT_TOPIC,
+  STATE_SUFFIX,
+  STATUS_TOPIC,
+  WINSTON_LOGGER
+} from '../utils/Constants'
 import { match } from '../utils/Matcher'
-import { Device, Property } from './Device'
-import { MqttEvent } from './MqttEvent'
-import { StateReport } from './StateReport'
+import { ConnectionStatus, Device, MqttEvent, Property } from './index'
+import { StateReport } from './StateReport.dto'
 
+@Injectable()
 export class MqttClient {
-  private readonly mqttOptions: mqtt.IClientOptions = {
-    password: process.env.MQTT_PASSWORD,
-    username: process.env.MQTT_USERNAME
-  }
-  private readonly devicesTopic: string
-  private readonly deviceTopicPrefix: string
-  private readonly rootTopic: string
-  private readonly stateSuffix: string
-  private readonly client: AsyncClient
-  private readonly devices: Device[]
-  private readonly stateReports: StateReport[]
+  private readonly client: AsyncClient = new AsyncClient(mqtt.connect(MQTT_OPTIONS))
+  private readonly devices: Device[] = []
+  private readonly stateReports: StateReport[] = []
+
+  @Inject(WINSTON_LOGGER)
+  private readonly logger!: Logger
 
   constructor() {
-    this.rootTopic = process.env.ROOT_TOPIC || ''
-    this.devicesTopic = process.env.DEVICES_TOPIC || ''
-    this.deviceTopicPrefix = process.env.DEVICE_TOPIC_PREFIX || ''
-    this.stateSuffix = 'state'
-    this.client = new AsyncClient(mqtt.connect(this.mqttOptions))
-    this.devices = []
-    this.stateReports = []
-  }
-
-  public setup(): MqttClient {
-    this.client
-      .on(MqttEvent.CONNECT, async () => {
-        await this.subscribe(this.rootTopic)
-      })
-      .on(MqttEvent.MESSAGE, (topic: string, payload: Buffer) => {
-        match(topic)
-          .on(t => t === this.devicesTopic, () => this.addDevice(payload))
-          .on(
-            t => t.startsWith(this.deviceTopicPrefix) && t.endsWith(this.stateSuffix),
-            t => this.addReport(this.extractEndpointId(t), payload)
-          )
-          .otherwise(() => console.log(`[MQTT] ${topic} doesn't have any handler yet`))
-      })
-    return this
+    this.setup()
   }
 
   public async subscribe(topic: string): Promise<void> {
@@ -57,12 +41,20 @@ export class MqttClient {
     }
   }
 
+  public async notifyStatus(status: ConnectionStatus): Promise<mqtt.IPublishPacket> {
+    return this.client.publish(STATUS_TOPIC, status, { qos: 0, retain: true })
+  }
+
   public get devicesInfo(): Device[] {
     return this.devices
   }
 
   public get reports(): StateReport[] {
     return this.stateReports
+  }
+
+  public getReportProperties(endpointId: string): Property[] {
+    return _.flatMap(this.stateReports.filter(report => report.id === endpointId), report => report.properties)
   }
 
   public clearDevices(): void {
@@ -81,11 +73,11 @@ export class MqttClient {
 
   private addReport(endpointId: string, payload: Buffer): void {
     const properties: Property[] = this.adjustPropertiesTimestamp(JSON.parse(payload.toString()))
-    const stateReport: StateReport | undefined = this.stateReports.find(report => report.getId() === endpointId)
+    const stateReport: StateReport | undefined = this.stateReports.find(report => report.id === endpointId)
     if (!stateReport) {
       this.stateReports.push(new StateReport(endpointId, properties))
     } else {
-      stateReport.setProperties(properties)
+      stateReport.properties = properties
     }
   }
 
@@ -97,6 +89,24 @@ export class MqttClient {
   }
 
   private extractEndpointId(topic: string): string {
-    return topic.substring(this.deviceTopicPrefix.length + 1, topic.lastIndexOf(this.stateSuffix) - 1)
+    return topic.substring(DEVICE_TOPIC_PREFIX.length + 1, topic.lastIndexOf(STATE_SUFFIX) - 1)
+  }
+
+  private setup(): MqttClient {
+    this.client
+      .on(MqttEvent.CONNECT, async () => {
+        await this.subscribe(ROOT_TOPIC)
+        await this.notifyStatus(ConnectionStatus.ONLINE)
+      })
+      .on(MqttEvent.MESSAGE, (topic: string, payload: Buffer) => {
+        match(topic)
+          .on(t => t === DEVICES_TOPIC, () => this.addDevice(payload))
+          .on(
+            t => t.startsWith(DEVICE_TOPIC_PREFIX) && t.endsWith(STATE_SUFFIX),
+            t => this.addReport(this.extractEndpointId(t), payload)
+          )
+          .otherwise(() => this.logger.info('[MQTT] [%s]: %s', topic, payload))
+      })
+    return this
   }
 }

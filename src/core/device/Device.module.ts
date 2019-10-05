@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common'
+import { MqttService } from '../mqtt/MqttService'
 import { DeviceController } from './Device.controller'
-import { MqttClient } from './MqttClient'
+import { DeviceService } from './Device.service'
 
 @Module({
   controllers: [DeviceController],
-  providers: [MqttClient]
+  providers: [DeviceService, MqttService]
 })
 export class DeviceModule {}

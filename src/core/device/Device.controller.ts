@@ -1,39 +1,39 @@
-import { Body, Controller, Delete, Get, Inject, InternalServerErrorException, Param, Post } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Inject, Param, Post } from '@nestjs/common'
 import { Logger } from 'winston'
-import { DEVICE_TOPIC_PREFIX, WINSTON_LOGGER } from '../utils/Constants'
+import { DEVICE_TOPIC_PREFIX, WINSTON_LOGGER } from '../../utils/Constants'
+import { DeviceService } from './Device.service'
 import { DevicePayload } from './DevicePayload.dto'
 import { Device, Property } from './index'
 import { Message } from './Message.dto'
-import { MqttClient } from './MqttClient'
 import { StateReport } from './StateReport.dto'
 
 @Controller('/devices')
 export class DeviceController {
   @Inject()
-  private mqttClient!: MqttClient
+  private deviceService!: DeviceService
 
   @Inject(WINSTON_LOGGER)
   private readonly logger!: Logger
 
   @Get('/stateReports')
   public getStateReports(): StateReport[] {
-    return this.mqttClient.reports
+    return this.deviceService.reports
   }
 
   @Get()
   public getDevices(): Device[] {
-    return this.mqttClient.devicesInfo
+    return this.deviceService.devicesInfo
   }
 
   @Delete()
   public clearDevices(): Message {
-    this.mqttClient.clearDevices()
+    this.deviceService.clearDevices()
     return new Message('Cleared devices')
   }
 
   @Get(':id/state')
   public getDeviceState(@Param('id') endpointId: string): Property[] {
-    return this.mqttClient.getReportProperties(endpointId)
+    return this.deviceService.getReportProperties(endpointId)
   }
 
   @Post(':id')
@@ -41,12 +41,7 @@ export class DeviceController {
     @Param('id') endpointId: string,
     @Body() devicePayload: DevicePayload
   ): Promise<Property[] | Message> {
-    try {
-      await this.mqttClient.publish(`${DEVICE_TOPIC_PREFIX}/${endpointId}`, JSON.stringify(devicePayload))
-    } catch (error) {
-      this.logger.error('Unable to send message to %s:\n%s', endpointId, error.toString())
-      throw new InternalServerErrorException(`Unable to send message to ${endpointId}`)
-    }
-    return this.mqttClient.getReportProperties(endpointId)
+    await this.deviceService.notifyDevice(`${DEVICE_TOPIC_PREFIX}/${endpointId}`, devicePayload)
+    return this.deviceService.getReportProperties(endpointId)
   }
 }

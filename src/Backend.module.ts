@@ -3,7 +3,7 @@ import { APP_INTERCEPTOR } from '@nestjs/core'
 import { MorganInterceptor, MorganModule } from 'nest-morgan'
 import { WinstonModule } from 'nest-winston'
 import { format, transports } from 'winston'
-import { DeviceModule } from './core/Device.module'
+import { DeviceModule } from './core/device/Device.module'
 
 @Module({
   imports: [

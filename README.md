@@ -14,6 +14,8 @@ npm install
 
 Generate a self-signed certificate via [OpenSSL](https://www.openssl.org/) tool (or just use your own existing certificate).
 
+Put certificates into **./src/core/tls** folder. Names could be configured within **./src/utils/Constants.ts**.
+
 Setup [Mosquitto](https://mosquitto.org/) MQTT broker for routing messages between micro-controllers and middleware layer.
 
 Note that it's recommended to protect your broker with at least basic credentials.
@@ -126,7 +128,7 @@ If micro-controller sends the following json to **home/devices** topic, Middlewa
 ]
 ```
 
-When user first activates a skill and run devices' discovery, Smart Home Skill calls [DiscoveryHandler](https://github.com/sskorol/alexa-smart-home-skill-template/blob/development/src/core/DiscoveryHandler.ts), which then requests devices from our Middleware **/devices** endpoint.
+When user first activates a skill and run devices' discovery, Smart Home Skill calls [DiscoveryHandler](https://github.com/sskorol/alexa-smart-home-skill-template/blob/development/src/core/DiscoveryHandler.ts), which then requests devices from our Middleware **/api/devices** endpoint.
 
 When user says **Alexa, light on** (assuming the mentioned above friendly name in json), Smart Home Skill calls [PowerHandler](https://github.com/sskorol/alexa-smart-home-skill-template/blob/development/src/core/PowerHandler.ts), which then sends a power control command, e.g.
 

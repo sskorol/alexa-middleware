@@ -10,7 +10,7 @@
     "start": "tsc-watch --onSuccess \"node ./src/Backend.js\""
   },
   "dependencies": {
-    "@nestjs/common": "^6.8.0",
+    "@nestjs/common": "^10.3.0",
     "@nestjs/core": "^6.8.0",
     "@nestjs/microservices": "^6.8.0",
     "@nestjs/platform-express": "^6.8.0",
